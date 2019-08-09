@@ -1,5 +1,4 @@
 package dsl
-import scala.language.higherKinds
 
 // Logical Functions typeclass
 trait Logical[T] {

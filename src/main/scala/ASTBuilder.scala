@@ -1,8 +1,6 @@
 package dsl
 
 import org.parboiled2._
-
-import scala.language.higherKinds
 import scala.reflect.ClassTag
 
 class ASTBuilder(val input: ParserInput, toleranceFraction: Double, fieldsTags: Map[Symbol, ClassTag[_]])

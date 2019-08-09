@@ -8,47 +8,47 @@ class ASTTest extends mutable.Specification {
 
   "Specification for AST testing" >> {
     "AST types must correctly construct from Scala types" >> {
-      ASTType.of[Int] must be(IntASTType)
-      ASTType.of[java.lang.Integer] must be(IntASTType)
-      ASTType.of[Long] must be(LongASTType)
-      ASTType.of[java.lang.Long] must be(LongASTType)
-      ASTType.of[Boolean] must be(BooleanASTType)
-      ASTType.of[java.lang.Boolean] must be(BooleanASTType)
-      ASTType.of[Double] must be(DoubleASTType)
-      ASTType.of[java.lang.Double] must be(DoubleASTType)
-      ASTType.of[String] must be(StringASTType)
-      ASTType.of[List[Int]] must be(AnyASTType)
+      ASTType.of[Int] === (IntASTType)
+      ASTType.of[java.lang.Integer] === (IntASTType)
+      ASTType.of[Long] === (LongASTType)
+      ASTType.of[java.lang.Long] === (LongASTType)
+      ASTType.of[Boolean] === (BooleanASTType)
+      ASTType.of[java.lang.Boolean] === (BooleanASTType)
+      ASTType.of[Double] === (DoubleASTType)
+      ASTType.of[java.lang.Double] === (DoubleASTType)
+      ASTType.of[String] === (StringASTType)
+      ASTType.of[List[Int]] === (AnyASTType)
     }
 
     "AST types must correctly determine" >> {
-      Constant(1.0).valueType must be(DoubleASTType)
-      Constant(1L).valueType must be(LongASTType)
-      Constant(true).valueType must be(BooleanASTType)
-      Constant(List(1, 2, 3)).valueType must be(AnyASTType)
+      Constant(1.0).valueType === (DoubleASTType)
+      Constant(1L).valueType === (LongASTType)
+      Constant(true).valueType === (BooleanASTType)
+      Constant(List(1, 2, 3)).valueType === (AnyASTType)
     }
 
     "Identifiers must have correct types" >> {
-      Identifier('intVar, ClassTag.Int).valueType must be(IntASTType)
-      Identifier('longVar, ClassTag.Long).valueType must be(LongASTType)
-      Identifier('boolVar, ClassTag.Boolean).valueType must be(BooleanASTType)
-      Identifier('doubleVar, ClassTag.Double).valueType must be(DoubleASTType)
-      Identifier('stringVar, ClassTag(classOf[String])).valueType must be(StringASTType)
+      Identifier('intVar, ClassTag.Int).valueType === (IntASTType)
+      Identifier('longVar, ClassTag.Long).valueType === (LongASTType)
+      Identifier('boolVar, ClassTag.Boolean).valueType === (BooleanASTType)
+      Identifier('doubleVar, ClassTag.Double).valueType === (DoubleASTType)
+      Identifier('stringVar, ClassTag(classOf[String])).valueType === (StringASTType)
     }
 
     "AST operations must require types" >> {
-      FunctionCall('and, Seq(Constant(true), Constant(false))).valueType must be(BooleanASTType)
+      FunctionCall('and, Seq(Constant(true), Constant(false))).valueType === (BooleanASTType)
       FunctionCall('and, Seq(Constant(true))) must throwA[ParseException]              // only 1 argument
       FunctionCall('and, Seq(Constant(true), Constant(1))) must throwA[ParseException] // invalid types
     }
 
     "Reducers must control types" >> {
-      ReducerFunctionCall('sumof, (_ => true), Seq(Constant(5.0), Constant(8.0))).valueType must be(DoubleASTType)
+      ReducerFunctionCall('sumof, (_ => true), Seq(Constant(5.0), Constant(8.0))).valueType === (DoubleASTType)
       ReducerFunctionCall('sumof, (_ => true), Seq(Constant(true), Constant(13.0))) must throwA[ParseException] // invalid types
       ReducerFunctionCall('samof, (_ => true), Seq(Constant(5.0), Constant(8.0))) must throwA[ParseException]   // invalid reducername
     }
 
     "AndThen must control types" >> {
-      AndThen(Constant(true), Constant(true)).valueType must be(BooleanASTType)
+      AndThen(Constant(true), Constant(true)).valueType === (BooleanASTType)
       AndThen(Constant(true), Constant(1.0)).valueType must throwA[ParseException] // non-boolean second argument
       AndThen(Constant(1.0), Constant(true)).valueType must throwA[ParseException] // non-boolean first argument
     }
@@ -60,20 +60,20 @@ class ASTTest extends mutable.Specification {
         Window(60000),
         TimeInterval(0, 10000)
       )
-      winOp.valueType must be(BooleanASTType)
+      winOp.valueType === (BooleanASTType)
       winOp.metadata mustEqual (PatternMetadata(Set('sensor), 60000))
     }
 
-    "Type requirements must be met" >> {
+    "Type requirements === met" >> {
       Constant(10L).requireType(LongASTType, "Type was not long")
       Constant(10L).requireType(BooleanASTType, "Type was not boolean") must throwA[ParseException]
     }
 
-    "Aggregate functions must be correctly created from symbols" >> {
-      AggregateFn.fromSymbol('sum) must beRight(Sum)
-      AggregateFn.fromSymbol('avg) must beRight(Avg)
-      AggregateFn.fromSymbol('count) must beRight(Count)
-      AggregateFn.fromSymbol('lag) must beRight(Lag)
+    "Aggregate functions === correctly created from symbols" >> {
+      AggregateFn.fromSymbol('sum) === Right(Sum)
+      AggregateFn.fromSymbol('avg) === Right(Avg)
+      AggregateFn.fromSymbol('count) === Right(Count)
+      AggregateFn.fromSymbol('lag) === Right(Lag)
       AggregateFn.fromSymbol('invalid) must beLeft
     }
 
@@ -82,10 +82,10 @@ class ASTTest extends mutable.Specification {
       AggregateCall(Sum, AggregateCall(Avg, Constant(1.0), Window(5000)), Window(10000)).metadata.sumWindowsMs mustEqual 15000L
     }
 
-    "Range must be correctly constructed" >> {
+    "Range === correctly constructed" >> {
       val range = Range(10000L, 60000L)
-      range.metadata must be(PatternMetadata.empty)
-      range.valueType must be(LongASTType)
+      range.metadata === (PatternMetadata.empty)
+      range.valueType === (LongASTType)
     }
   }
 }
