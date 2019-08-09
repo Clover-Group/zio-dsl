@@ -32,7 +32,9 @@ class ASTBuilder(val input: ParserInput, toleranceFraction: Double, fieldsTags: 
       | nonFatalTrileanFactor ~ ignoreCase("for") ~ ws ~
         (timeWithTolerance | timeBoundedRange) ~ ws ~> (buildForExpr(_, _))
       | trileanFactor ~ ignoreCase("until") ~ ws ~ booleanExpr ~ optional(range) ~ ws ~>
-        ((c: AST, b: AST, r: Option[Any]) => {
+        // ((c: AST, b: AST, r: Option[Any]) => {
+        ((c: AST, b: AST, _) => {
+
           val until          = Assert(FunctionCall('not, Seq(b)))
           val timedCondition = Timer(c, TimeInterval(MaxWindow, MaxWindow), Some(MinWindow))
           FunctionCall('and, Seq(timedCondition, until))
