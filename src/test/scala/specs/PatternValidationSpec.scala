@@ -1,4 +1,4 @@
-package patterns
+/* package patterns
 
 import org.specs2._
 import zio.{ DefaultRuntime }
@@ -28,7 +28,7 @@ class ArrowSpec extends Specification with DefaultRuntime {
 
   def is = s2"""
 
-  DSL Pattern Validator should      
+  DSL Pattern Validator should
     validate patterns   $testPatternValidator
 
     """
@@ -39,3 +39,4 @@ class ArrowSpec extends Specification with DefaultRuntime {
     true === true
 
 }
+ */

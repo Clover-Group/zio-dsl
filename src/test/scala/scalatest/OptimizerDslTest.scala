@@ -9,7 +9,7 @@ import ru.itclover.tsp.core.Pattern
 
 import scala.reflect.ClassTag
 import ru.itclover.tsp.core.CouplePattern
-import org.scalacheck.Test
+// import org.scalacheck.Test
 import ru.itclover.tsp.core.optimizations.Optimizer
 import ru.itclover.tsp.core.SimplePattern
 import ru.itclover.tsp.core.MapPattern

@@ -1,4 +1,4 @@
-package patterns
+/* package patterns
 import org.specs2._
 
 import scala.reflect.ClassTag
@@ -74,3 +74,4 @@ class PatternGenerationSpec extends mutable.Specification {
 
   }
 }
+ */

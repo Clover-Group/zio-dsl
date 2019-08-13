@@ -1,4 +1,4 @@
-package dsl
+/* package dsl
 
 import org.specs2._
 
@@ -146,3 +146,4 @@ class FunctionRegistryTest extends mutable.Specification {
     }
   }
 }
+ */

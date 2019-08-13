@@ -1,6 +1,7 @@
-val CatsVersion      = "2.0.0-RC1"
-val ParboiledVersion = "2.1.8"
-val ScalaTestVersion = "3.0.8"
+val CatsVersion       = "2.0.0-RC1"
+val ParboiledVersion  = "2.1.8"
+val ScalaTestVersion  = "3.0.8"
+val ScalaCheckVersion = "1.14.0"
 
 resolvers += Resolver.sonatypeRepo("releases")
 resolvers += Resolver.sonatypeRepo("snapshots")
@@ -11,10 +12,11 @@ version := "0.0.1"
 scalaVersion := "2.12.8"
 maxErrors := 3
 libraryDependencies ++= Seq(
-  "org.typelevel" %% "cats-core" % CatsVersion,
-  "org.parboiled" %% "parboiled" % ParboiledVersion,
-  "org.scalactic" %% "scalactic" % ScalaTestVersion,
-  "org.scalatest" %% "scalatest" % ScalaTestVersion % "test"
+  "org.typelevel"  %% "cats-core"  % CatsVersion,
+  "org.parboiled"  %% "parboiled"  % ParboiledVersion,
+  "org.scalacheck" %% "scalacheck" % ScalaCheckVersion % "test",
+  "org.scalactic"  %% "scalactic"  % ScalaTestVersion,
+  "org.scalatest"  %% "scalatest"  % ScalaTestVersion % "test"
 )
 
 // Refine scalac params from tpolecat
@@ -26,4 +28,4 @@ addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.1" cross CrossVersion.fu
 
 addCommandAlias("fmt", "all scalafmtSbt scalafmt test:scalafmt")
 addCommandAlias("chk", "all scalafmtSbtCheck scalafmtCheck test:scalafmtCheck")
-addCommandAlias("cvr", "; clean; coverage; test; coverageReport")
+addCommandAlias("cov", "; clean; coverage; test; coverageReport")
