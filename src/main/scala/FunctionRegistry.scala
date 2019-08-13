@@ -1,20 +1,24 @@
-package dsl
+package ru.itclover.tsp.dsl.v2
 import java.io.Serializable
 
+import ru.itclover.tsp.core.{ Fail, Result, Succ }
+
+//import scala.collection.mutable
 import scala.reflect.ClassTag
+import com.typesafe.scalalogging.Logger
 
 @SerialVersionUID(81001L)
-trait PFunction extends (Seq[Any] => Option[Any]) with Serializable
+trait PFunction extends (Seq[Any] => Result[Any]) with Serializable
 
 @SerialVersionUID(81002L)
-trait PReducer extends ((Option[Any], Any) => Option[Any]) with Serializable
+trait PReducer extends ((Result[Any], Any) => Result[Any]) with Serializable
 
 @SerialVersionUID(81003L)
-trait PReducerTransformation extends (Option[Any] => Option[Any]) with Serializable
+trait PReducerTransformation extends (Result[Any] => Result[Any]) with Serializable
 
 /**
  * Registry for runtime functions
- * Ensure that the Option type of the function matches the corresponding ASTType. It's not automatic
+ * Ensure that the result type of the function matches the corresponding ASTType. It's not automatic
  *
  * @param functions Multi-argument functions (arguments wrapped into a Seq) and their return types
  * @param reducers Reducer functions, their return types and initial values
@@ -29,18 +33,21 @@ case class FunctionRegistry(
 
 object DefaultFunctions {
 
-  private def toOption[T](x: Any)(implicit ct: ClassTag[T]): Option[T] =
+  val log = Logger("DefaultFunctionRegistry")
+
+  private def toResult[T](x: Any)(implicit ct: ClassTag[T]): Result[T] =
     x match {
-      case value: Option[T]                                          => value
-      case value: T                                                  => Some(value)
-      case value if ct.runtimeClass.isAssignableFrom(value.getClass) => Some(value.asInstanceOf[T])
+      case value: Result[T]                                          => value
+      case value: T                                                  => Result.succ(value)
+      case value if ct.runtimeClass.isAssignableFrom(value.getClass) => Result.succ(value.asInstanceOf[T])
       case v: Long if (ct.runtimeClass eq classOf[Int]) || (ct.runtimeClass eq classOf[java.lang.Integer]) =>
-        Some(v.toInt.asInstanceOf[T]) // we know that T == Int
+        Result.succ(v.toInt.asInstanceOf[T]) // we know that T == Int
       case v: Long if (ct.runtimeClass eq classOf[Double]) || (ct.runtimeClass eq classOf[java.lang.Double]) =>
-        Some(v.toDouble.asInstanceOf[T]) // we know that T == Double
+        Result.succ(v.toDouble.asInstanceOf[T]) // we know that T == Double
       // TODO: maybe some other cases
       case _ =>
-        None
+        log.warn(s"$x (of type ${x.getClass.getName}) cannot be cast to $ct")
+        Result.fail
     }
 
   def arithmeticFunctions[T1: ClassTag, T2: ClassTag](
@@ -51,9 +58,9 @@ object DefaultFunctions {
     val astType2: ASTType = ASTType.of[T2]
     def func(f: (T1, T2) => T1): (PFunction, ASTType) = (
       (xs: Seq[Any]) =>
-        (toOption[T1](xs.head), toOption[T2](xs(1))) match {
-          case (Some(t0), Some(t1)) => Some(f(t0, t1))
-          case _                    => None
+        (toResult[T1](xs.head), toResult[T2](xs(1))) match {
+          case (Succ(t0), Succ(t1)) => Result.succ(f(t0, t1))
+          case _                    => Result.fail
         },
       astType1
     )
@@ -63,9 +70,9 @@ object DefaultFunctions {
       ('mul, Seq(astType1, astType2)) -> (
         (
           (xs: Seq[Any]) =>
-            (toOption[T1](xs(0)), toOption[T2](xs(1))) match {
-              case (Some(t0), Some(t1)) => Some(f.times(t0, t1))
-              case _                    => None
+            (toResult[T1](xs(0)), toResult[T2](xs(1))) match {
+              case (Succ(t0), Succ(t1)) => Result.succ(f.times(t0, t1))
+              case _                    => Result.fail
             },
           astType1
         )
@@ -73,9 +80,9 @@ object DefaultFunctions {
       ('div, Seq(astType1, astType2)) -> (
         (
           (xs: Seq[Any]) =>
-            (toOption[T1](xs(0)), toOption[T2](xs(1))) match {
-              case (Some(t0), Some(t1)) => Some(f.div(t0, t1))
-              case _                    => None
+            (toResult[T1](xs(0)), toResult[T2](xs(1))) match {
+              case (Succ(t0), Succ(t1)) => Result.succ(f.div(t0, t1))
+              case _                    => Result.fail
             },
           astType1
         )
@@ -83,9 +90,9 @@ object DefaultFunctions {
       ('add, Seq(astType2, astType1)) -> (
         (
           (xs: Seq[Any]) =>
-            (toOption[T2](xs(0)), toOption[T1](xs(1))) match {
-              case (Some(t0), Some(t1)) => Some(f.plus(t0, t1))
-              case _                    => None
+            (toResult[T2](xs(0)), toResult[T1](xs(1))) match {
+              case (Succ(t0), Succ(t1)) => Result.succ(f.plus(t0, t1))
+              case _                    => Result.fail
             },
           astType1
         )
@@ -93,9 +100,9 @@ object DefaultFunctions {
       ('sub, Seq(astType2, astType1)) -> (
         (
           (xs: Seq[Any]) =>
-            (toOption[T2](xs(0)), toOption[T1](xs(1))) match {
-              case (Some(t0), Some(t1)) => Some(f.minus(t0, t1))
-              case _                    => None
+            (toResult[T2](xs(0)), toResult[T1](xs(1))) match {
+              case (Succ(t0), Succ(t1)) => Result.succ(f.minus(t0, t1))
+              case _                    => Result.fail
             },
           astType1
         )
@@ -103,9 +110,9 @@ object DefaultFunctions {
       ('mul, Seq(astType2, astType1)) -> (
         (
           (xs: Seq[Any]) =>
-            (toOption[T2](xs(0)), toOption[T1](xs(1))) match {
-              case (Some(t0), Some(t1)) => Some(f.times(t0, t1))
-              case _                    => None
+            (toResult[T2](xs(0)), toResult[T1](xs(1))) match {
+              case (Succ(t0), Succ(t1)) => Result.succ(f.times(t0, t1))
+              case _                    => Result.fail
             },
           astType1
         )
@@ -113,9 +120,9 @@ object DefaultFunctions {
       ('div, Seq(astType2, astType1)) -> (
         (
           (xs: Seq[Any]) =>
-            (toOption[T2](xs(0)), toOption[T1](xs(1))) match {
-              case (Some(t0), Some(t1)) => Some(f.div(t0, t1))
-              case _                    => None
+            (toResult[T2](xs(0)), toResult[T1](xs(1))) match {
+              case (Succ(t0), Succ(t1)) => Result.succ(f.div(t0, t1))
+              case _                    => Result.fail
             },
           astType1
         )
@@ -128,79 +135,79 @@ object DefaultFunctions {
     Map(
       ('abs, Seq(astType)) -> (
         (
-          (xs: Seq[Any]) => toOption[T](xs(0)).map(Math.abs(_)),
+          (xs: Seq[Any]) => toResult[T](xs(0)).map(Math.abs(_)),
           astType
         )
       ),
       ('sin, Seq(astType)) -> (
         (
-          (xs: Seq[Any]) => toOption[T](xs(0)).map(Math.sin(_)),
+          (xs: Seq[Any]) => toResult[T](xs(0)).map(Math.sin(_)),
           astType
         )
       ),
       ('cos, Seq(astType)) -> (
         (
-          (xs: Seq[Any]) => toOption[T](xs(0)).map(Math.cos(_)),
+          (xs: Seq[Any]) => toResult[T](xs(0)).map(Math.cos(_)),
           astType
         )
       ),
       ('tan, Seq(astType)) -> (
         (
-          (xs: Seq[Any]) => toOption[T](xs(0)).map(Math.tan(_)),
+          (xs: Seq[Any]) => toResult[T](xs(0)).map(Math.tan(_)),
           astType
         )
       ),
       ('tg, Seq(astType)) -> (
         (
-          (xs: Seq[Any]) => toOption[T](xs(0)).map(Math.tan(_)),
+          (xs: Seq[Any]) => toResult[T](xs(0)).map(Math.tan(_)),
           astType
         )
       ),
       ('cot, Seq(astType)) -> (
         (
-          (xs: Seq[Any]) => toOption[T](xs(0)).map(1.0 / Math.tan(_)),
+          (xs: Seq[Any]) => toResult[T](xs(0)).map(1.0 / Math.tan(_)),
           astType
         )
       ),
       ('ctg, Seq(astType)) -> (
         (
-          (xs: Seq[Any]) => toOption[T](xs(0)).map(1.0 / Math.tan(_)),
+          (xs: Seq[Any]) => toResult[T](xs(0)).map(1.0 / Math.tan(_)),
           astType
         )
       ),
       ('sind, Seq(astType)) -> (
         (
-          (xs: Seq[Any]) => toOption[T](xs(0)).map(x => (Math.sin(Math.toRadians(x)))),
+          (xs: Seq[Any]) => toResult[T](xs(0)).map(x => Math.toRadians(Math.sin(x))),
           astType
         )
       ),
       ('cosd, Seq(astType)) -> (
         (
-          (xs: Seq[Any]) => toOption[T](xs(0)).map(x => (Math.cos(Math.toRadians(x)))),
+          (xs: Seq[Any]) => toResult[T](xs(0)).map(x => Math.toRadians(Math.cos(x))),
           astType
         )
       ),
       ('tand, Seq(astType)) -> (
         (
-          (xs: Seq[Any]) => toOption[T](xs(0)).map(x => (Math.tan(Math.toRadians(x)))),
+          (xs: Seq[Any]) => toResult[T](xs(0)).map(x => Math.toRadians(Math.tan(x))),
           astType
         )
       ),
       ('tgd, Seq(astType)) -> (
         (
-          (xs: Seq[Any]) => toOption[T](xs(0)).map(x => (Math.sin(Math.toRadians(x)))),
+          (xs: Seq[Any]) => toResult[T](xs(0)).map(x => Math.toRadians(Math.sin(x))),
           astType
         )
       ),
       ('cotd, Seq(astType)) -> (
         (
-          (xs: Seq[Any]) => toOption[T](xs(0)).map(x => 1.0 / (Math.tan(Math.toRadians(x)))),
+          (xs: Seq[Any]) => toResult[T](xs(0)).map(x => 1.0 / Math.toRadians(Math.tan(x))),
           astType
         )
       ),
       ('ctgd, Seq(astType)) -> (
         (
-          (xs: Seq[Any]) => toOption[T](xs(0)).map(x => 1.0 / (Math.tan(Math.toRadians(x)))),
+          (xs: Seq[Any]) => toResult[T](xs(0)).map(x => 1.0 / Math.toRadians(Math.tan(x))),
           astType
         )
       )
@@ -208,32 +215,34 @@ object DefaultFunctions {
   }
 
   def logicalFunctions: Map[(Symbol, Seq[ASTType]), (PFunction, ASTType)] = {
+    import Functional._
+    val log = Logger("LogicalLogger")
 
     // TSP-182 - Workaround for correct type inference
 
     val btype = BooleanASTType
 
-    def func(sym: Symbol, xs: Seq[Any])(implicit l: Logical[Any]): Option[Boolean] =
+    def func(sym: Symbol, xs: Seq[Any])(implicit l: Logical[Any]): Result[Boolean] =
       //log.debug(s"func($sym): Arg0 = $xs(0), Arg1 = $xs(1)")
       //log.info(s"Args = ${(xs(0), xs.lift(1).getOrElse(Unit))}")
-      //log.info(s"Arg Options = ${(toOption[Boolean](xs(0)), toOption[Boolean](xs.lift(1).getOrElse(Unit)))}")
-      (toOption[Boolean](xs(0)), toOption[Boolean](xs.lift(1).getOrElse(Unit))) match {
-        case (Some(x0), Some(x1)) =>
+      //log.info(s"Arg results = ${(toResult[Boolean](xs(0)), toResult[Boolean](xs.lift(1).getOrElse(Unit)))}")
+      (toResult[Boolean](xs(0)), toResult[Boolean](xs.lift(1).getOrElse(Unit))) match {
+        case (Succ(x0), Succ(x1)) =>
           sym match {
 
-            case 'and => Some(l.and(x0, x1))
-            case 'or  => Some(l.or(x0, x1))
-            case 'xor => Some(l.xor(x0, x1))
-            case 'eq  => Some(l.eq(x0, x1))
-            case 'neq => Some(l.neq(x0, x1))
-            case _    => None
+            case 'and => Result.succ(l.and(x0, x1))
+            case 'or  => Result.succ(l.or(x0, x1))
+            case 'xor => Result.succ(l.xor(x0, x1))
+            case 'eq  => Result.succ(l.eq(x0, x1))
+            case 'neq => Result.succ(l.neq(x0, x1))
+            case _    => Result.fail
           }
-        case (Some(x0), None) =>
+        case (Succ(x0), Fail) =>
           sym match {
-            case 'not => Some(l.not(x0))
-            case _    => None
+            case 'not => Result.succ(l.not(x0))
+            case _    => Result.fail
           }
-        case _ => None
+        case _ => Result.fail
       }
 
     Map(
@@ -258,9 +267,9 @@ object DefaultFunctions {
       ('lt, Seq(astType1, astType2)) -> (
         (
           (xs: Seq[Any]) =>
-            (toOption[T1](xs(0)), toOption[T2](xs(1))) match {
-              case (Some(t0), Some(t1)) => Some(ord.lt(t0, t1))
-              case _                    => None
+            (toResult[T1](xs(0)), toResult[T2](xs(1))) match {
+              case (Succ(t0), Succ(t1)) => Result.succ(ord.lt(t0, t1))
+              case _                    => Result.fail
             },
           BooleanASTType
         )
@@ -268,9 +277,9 @@ object DefaultFunctions {
       ('le, Seq(astType1, astType2)) -> (
         (
           (xs: Seq[Any]) =>
-            (toOption[T1](xs(0)), toOption[T2](xs(1))) match {
-              case (Some(t0), Some(t1)) => Some(ord.lteq(t0, t1))
-              case _                    => None
+            (toResult[T1](xs(0)), toResult[T2](xs(1))) match {
+              case (Succ(t0), Succ(t1)) => Result.succ(ord.lteq(t0, t1))
+              case _                    => Result.fail
             },
           BooleanASTType
         )
@@ -278,9 +287,9 @@ object DefaultFunctions {
       ('gt, Seq(astType1, astType2)) -> (
         (
           (xs: Seq[Any]) =>
-            (toOption[T1](xs(0)), toOption[T2](xs(1))) match {
-              case (Some(t0), Some(t1)) => Some(ord.gt(t0, t1))
-              case _                    => None
+            (toResult[T1](xs(0)), toResult[T2](xs(1))) match {
+              case (Succ(t0), Succ(t1)) => Result.succ(ord.gt(t0, t1))
+              case _                    => Result.fail
             },
           BooleanASTType
         )
@@ -288,9 +297,9 @@ object DefaultFunctions {
       ('ge, Seq(astType1, astType2)) -> (
         (
           (xs: Seq[Any]) =>
-            (toOption[T1](xs(0)), toOption[T2](xs(1))) match {
-              case (Some(t0), Some(t1)) => Some(ord.gteq(t0, t1))
-              case _                    => None
+            (toResult[T1](xs(0)), toResult[T2](xs(1))) match {
+              case (Succ(t0), Succ(t1)) => Result.succ(ord.gteq(t0, t1))
+              case _                    => Result.fail
             },
           BooleanASTType
         )
@@ -298,9 +307,9 @@ object DefaultFunctions {
       ('eq, Seq(astType1, astType2)) -> (
         (
           (xs: Seq[Any]) =>
-            (toOption[T1](xs(0)), toOption[T2](xs(1))) match {
-              case (Some(t0), Some(t1)) => Some(ord.equiv(t0, t1))
-              case _                    => None
+            (toResult[T1](xs(0)), toResult[T2](xs(1))) match {
+              case (Succ(t0), Succ(t1)) => Result.succ(ord.equiv(t0, t1))
+              case _                    => Result.fail
             },
           BooleanASTType
         )
@@ -308,9 +317,9 @@ object DefaultFunctions {
       ('ne, Seq(astType1, astType2)) -> (
         (
           (xs: Seq[Any]) =>
-            (toOption[T1](xs(0)), toOption[T2](xs(1))) match {
-              case (Some(t0), Some(t1)) => Some(!ord.equiv(t0, t1))
-              case _                    => None
+            (toResult[T1](xs(0)), toResult[T2](xs(1))) match {
+              case (Succ(t0), Succ(t1)) => Result.succ(!ord.equiv(t0, t1))
+              case _                    => Result.fail
             },
           BooleanASTType
         )
@@ -318,9 +327,9 @@ object DefaultFunctions {
       ('lt, Seq(astType2, astType1)) -> (
         (
           (xs: Seq[Any]) =>
-            (toOption[T2](xs(0)), toOption[T1](xs(1))) match {
-              case (Some(t0), Some(t1)) => Some(ord.lt(t0, t1))
-              case _                    => None
+            (toResult[T2](xs(0)), toResult[T1](xs(1))) match {
+              case (Succ(t0), Succ(t1)) => Result.succ(ord.lt(t0, t1))
+              case _                    => Result.fail
             },
           BooleanASTType
         )
@@ -328,9 +337,9 @@ object DefaultFunctions {
       ('le, Seq(astType2, astType1)) -> (
         (
           (xs: Seq[Any]) =>
-            (toOption[T2](xs(0)), toOption[T1](xs(1))) match {
-              case (Some(t0), Some(t1)) => Some(ord.lteq(t0, t1))
-              case _                    => None
+            (toResult[T2](xs(0)), toResult[T1](xs(1))) match {
+              case (Succ(t0), Succ(t1)) => Result.succ(ord.lteq(t0, t1))
+              case _                    => Result.fail
             },
           BooleanASTType
         )
@@ -338,9 +347,9 @@ object DefaultFunctions {
       ('gt, Seq(astType2, astType1)) -> (
         (
           (xs: Seq[Any]) =>
-            (toOption[T2](xs(0)), toOption[T1](xs(1))) match {
-              case (Some(t0), Some(t1)) => Some(ord.gt(t0, t1))
-              case _                    => None
+            (toResult[T2](xs(0)), toResult[T1](xs(1))) match {
+              case (Succ(t0), Succ(t1)) => Result.succ(ord.gt(t0, t1))
+              case _                    => Result.fail
             },
           BooleanASTType
         )
@@ -348,9 +357,9 @@ object DefaultFunctions {
       ('ge, Seq(astType2, astType1)) -> (
         (
           (xs: Seq[Any]) =>
-            (toOption[T2](xs(0)), toOption[T1](xs(1))) match {
-              case (Some(t0), Some(t1)) => Some(ord.gteq(t0, t1))
-              case _                    => None
+            (toResult[T2](xs(0)), toResult[T1](xs(1))) match {
+              case (Succ(t0), Succ(t1)) => Result.succ(ord.gteq(t0, t1))
+              case _                    => Result.fail
             },
           BooleanASTType
         )
@@ -358,9 +367,9 @@ object DefaultFunctions {
       ('eq, Seq(astType2, astType1)) -> (
         (
           (xs: Seq[Any]) =>
-            (toOption[T2](xs(0)), toOption[T1](xs(1))) match {
-              case (Some(t0), Some(t1)) => Some(ord.equiv(t0, t1))
-              case _                    => None
+            (toResult[T2](xs(0)), toResult[T1](xs(1))) match {
+              case (Succ(t0), Succ(t1)) => Result.succ(ord.equiv(t0, t1))
+              case _                    => Result.fail
             },
           BooleanASTType
         )
@@ -368,9 +377,9 @@ object DefaultFunctions {
       ('ne, Seq(astType2, astType1)) -> (
         (
           (xs: Seq[Any]) =>
-            (toOption[T2](xs(0)), toOption[T1](xs(1))) match {
-              case (Some(t0), Some(t1)) => Some(!ord.equiv(t0, t1))
-              case _                    => None
+            (toResult[T2](xs(0)), toResult[T1](xs(1))) match {
+              case (Succ(t0), Succ(t1)) => Result.succ(!ord.equiv(t0, t1))
+              case _                    => Result.fail
             },
           BooleanASTType
         )
@@ -379,14 +388,14 @@ object DefaultFunctions {
   }
 
   def reducers[T: ClassTag](
-    // implicit conv: T => Double
+    implicit conv: T => Double
   ): Map[(Symbol, ASTType), (PReducer, ASTType, PReducerTransformation, Serializable)] = Map(
     ('sumof, DoubleASTType) -> (
       (
-        { (acc: Option[Any], x: Any) =>
-          (toOption[Double](acc), toOption[Double](x)) match {
-            case (Some(da), Some(dx)) => Some(da + dx)
-            case _                    => None
+        { (acc: Result[Any], x: Any) =>
+          (toResult[Double](acc), toResult[Double](x)) match {
+            case (Succ(da), Succ(dx)) => Result.succ(da + dx)
+            case _                    => Result.fail
           }
         },
         DoubleASTType, {
@@ -397,10 +406,10 @@ object DefaultFunctions {
     ),
     ('minof, DoubleASTType) -> (
       (
-        { (acc: Option[Any], x: Any) =>
-          (toOption[Double](acc), toOption[Double](x)) match {
-            case (Some(da), Some(dx)) => Some(Math.min(da, dx))
-            case _                    => None
+        { (acc: Result[Any], x: Any) =>
+          (toResult[Double](acc), toResult[Double](x)) match {
+            case (Succ(da), Succ(dx)) => Result.succ(Math.min(da, dx))
+            case _                    => Result.fail
           }
         },
         DoubleASTType, {
@@ -411,10 +420,10 @@ object DefaultFunctions {
     ),
     ('maxof, DoubleASTType) -> (
       (
-        { (acc: Option[Any], x: Any) =>
-          (toOption[Double](acc), toOption[Double](x)) match {
-            case (Some(da), Some(dx)) => Some(Math.max(da, dx))
-            case _                    => None
+        { (acc: Result[Any], x: Any) =>
+          (toResult[Double](acc), toResult[Double](x)) match {
+            case (Succ(da), Succ(dx)) => Result.succ(Math.max(da, dx))
+            case _                    => Result.fail
           }
         },
         DoubleASTType, {
@@ -423,23 +432,23 @@ object DefaultFunctions {
         java.lang.Double.valueOf(Double.MinValue)
       )
     ),
-    /*('countof, DoubleASTType) -> ({ (acc: Option[Any], x: Any) =>
-      (toOption[Double](acc), toOption[Double](x)) match {
-        case (Some(da), Some(_)) => Some(da + 1)
-        case _                   => None
+    ('countof, DoubleASTType) -> ({ (acc: Result[Any], x: Any) =>
+      (toResult[Double](acc), toResult[Double](x)) match {
+        case (Succ(da), Succ(_)) => Result.succ(da + 1)
+        case _                   => Result.fail
       }
     }, DoubleASTType, {
       identity(_)
-    }, java.lang.Double.valueOf(0)),*/
-    ('avgof, DoubleASTType) -> (({ (acc: Option[Any], x: Any) =>
-      (toOption[(Double, Double)](acc), toOption[Double](x)) match {
-        case (Some((sum, count)), Some(dx)) => Some((sum + dx, count + 1))
-        case _                              => None
+    }, java.lang.Double.valueOf(0)),
+    ('avgof, DoubleASTType) -> (({ (acc: Result[Any], x: Any) =>
+      (toResult[(Double, Double)](acc), toResult[Double](x)) match {
+        case (Succ((sum, count)), Succ(dx)) => Result.succ((sum + dx, count + 1))
+        case _                              => Result.fail
       }
-    }, DoubleASTType, { x: Option[Any] =>
+    }, DoubleASTType, { x: Result[Any] =>
       x match {
-        case Some((sum: Double, count: Double)) => Some(sum / count)
-        case _                                  => None
+        case Succ((sum: Double, count: Double)) => Result.succ(sum / count)
+        case _                                  => Result.fail
       }
     }, (0.0, 0.0)))
   )
@@ -454,10 +463,10 @@ object DefaultFunctions {
     override def negate(x: Int): Int          = -x
     override def fromInt(x: Int): Int         = x
     override def toInt(x: Int): Int           = x
-    override def toLong(x: Int): Long         = x.toLong
+    override def toLong(x: Int): Long         = x
     override def toFloat(x: Int): Float       = x.toFloat
     override def toDouble(x: Int): Double     = x.toDouble
-    override def compare(x: Int, y: Int): Int = java.lang.Long.compare(x.toLong, y.toLong)
+    override def compare(x: Int, y: Int): Int = java.lang.Long.compare(x, y)
   }
 
   implicit val fractionalLong: Fractional[Long] = new Fractional[Long] {
@@ -466,7 +475,7 @@ object DefaultFunctions {
     override def minus(x: Long, y: Long): Long  = x - y
     override def times(x: Long, y: Long): Long  = x * y
     override def negate(x: Long): Long          = -x
-    override def fromInt(x: Int): Long          = x.toLong
+    override def fromInt(x: Int): Long          = x
     override def toInt(x: Long): Int            = x.toInt
     override def toLong(x: Long): Long          = x
     override def toFloat(x: Long): Float        = x.toFloat

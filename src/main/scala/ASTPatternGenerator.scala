@@ -1,17 +1,17 @@
-package dsl
+package ru.itclover.tsp.dsl.v2
 
 import cats.Order
 import cats.instances.double._
 import com.typesafe.scalalogging.Logger
-import ru.itclover.tsp.core.Intervals.{NumericInterval, TimeInterval}
-import ru.itclover.tsp.core.Pattern.{Idx, IdxExtractor}
-import ru.itclover.tsp.core.{Window, _}
-import ru.itclover.tsp.core.aggregators.{TimerPattern, WindowStatistic, WindowStatisticResult}
+import ru.itclover.tsp.core.Intervals.{ NumericInterval, TimeInterval }
+import ru.itclover.tsp.core.Pattern.{ Idx, IdxExtractor }
+import ru.itclover.tsp.core.{ Window, _ }
+import ru.itclover.tsp.core.aggregators.{ TimerPattern, WindowStatistic, WindowStatisticResult }
 import ru.itclover.tsp.core.io.AnyDecodersInstances._
-import ru.itclover.tsp.core.io.{Extractor, TimeExtractor}
+import ru.itclover.tsp.core.io.{ Extractor, TimeExtractor }
 import ru.itclover.tsp.dsl.PatternMetadata
 
-import scala.language.{higherKinds, implicitConversions}
+import scala.language.{ higherKinds, implicitConversions }
 import scala.reflect.ClassTag
 
 case class ASTPatternGenerator[Event, EKey, EItem]()(
@@ -23,7 +23,7 @@ case class ASTPatternGenerator[Event, EKey, EItem]()(
 ) {
 
   val registry: FunctionRegistry = DefaultFunctionRegistry
-  @transient val richPatterns = new Patterns[Event] {}
+  @transient val richPatterns    = new Patterns[Event] {}
 
   private val log = Logger("ASTPGenLogger")
 
@@ -72,7 +72,7 @@ case class ASTPatternGenerator[Event, EKey, EItem]()(
                     (fc.functionName, fc.arguments.map(_.valueType)),
                     sys.error(
                       s"Function ${fc.functionName} with argument types " +
-                      s"(${fc.arguments.map(_.valueType).mkString(",")})  not found"
+                        s"(${fc.arguments.map(_.valueType).mkString(",")})  not found"
                     )
                   )
                   ._1(Seq(x))
@@ -89,7 +89,7 @@ case class ASTPatternGenerator[Event, EKey, EItem]()(
                         (fc.functionName, fc.arguments.map(_.valueType)),
                         sys.error(
                           s"Function ${fc.functionName} with argument types " +
-                          s"(${fc.arguments.map(_.valueType).mkString(",")}) not found"
+                            s"(${fc.arguments.map(_.valueType).mkString(",")}) not found"
                         )
                       )
                       ._1(
@@ -113,7 +113,7 @@ case class ASTPatternGenerator[Event, EKey, EItem]()(
           (x, y) match {
             case (_, Fail)    => Result.fail
             case (_, Succ(d)) => func(x, d)
-        }
+          }
         new ReducePattern(ffc.arguments.map(generatePattern))(wrappedFunc, trans, ffc.cond, Result.succ(initial))
 
       // case AggregateCall(Count, inner, w) if inner.valueType == DoubleASTType => ??? // this way

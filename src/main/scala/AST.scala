@@ -1,9 +1,13 @@
-package dsl
+package ru.itclover.tsp.dsl.v2
 
 import scala.reflect.ClassTag
-
-// TODO: Get rid of all the exceptions
-case class ParseException(message: String) extends Exception
+import cats.implicits._
+import ru.itclover.tsp.core.Intervals.{ Interval, TimeInterval }
+import ru.itclover.tsp.core.Window
+import ru.itclover.tsp.dsl.PatternMetadataInstances.monoid
+import ru.itclover.tsp.dsl.PatternMetadata
+import ru.itclover.tsp.utils.UtilityTypes.ParseException
+import ru.itclover.tsp.core.Result
 
 sealed trait AST extends Product with Serializable {
   val valueType: ASTType
@@ -32,8 +36,9 @@ case class Range[T](from: T, to: T)(implicit ct: ClassTag[T]) extends AST {
   override val valueType: ASTType = ASTType.of[T]
 }
 
+// TODO@trolley Rm with Function1, Function2, Function3 - boilerplate is better than mutable maps and extra complexity
 case class FunctionCall(functionName: Symbol, arguments: Seq[AST])(implicit fr: FunctionRegistry) extends AST {
-  override def metadata = arguments.map(_.metadata).reduce(_ + _)
+  override def metadata = arguments.map(_.metadata).reduce(_ |+| _)
   override val valueType: ASTType = fr.functions.get((functionName, arguments.map(_.valueType))) match {
     case Some((_, t)) => t
     case None =>
@@ -44,7 +49,7 @@ case class FunctionCall(functionName: Symbol, arguments: Seq[AST])(implicit fr: 
   }
 }
 
-case class ReducerFunctionCall(functionName: Symbol, @transient cond: Option[Any] => Boolean, arguments: Seq[AST])(
+case class ReducerFunctionCall(functionName: Symbol, @transient cond: Result[Any] => Boolean, arguments: Seq[AST])(
   implicit fr: FunctionRegistry
 ) extends AST {
   // require the same type for all arguments
@@ -57,7 +62,7 @@ case class ReducerFunctionCall(functionName: Symbol, @transient cond: Option[Any
       )
   }
 
-  override def metadata = arguments.map(_.metadata).reduce(_ + _)
+  override def metadata = arguments.map(_.metadata).reduce(_ |+| _)
   override val valueType: ASTType = fr.reducers.get((functionName, arguments(0).valueType)) match {
     case Some((_, t, _, _)) => t
     case None =>
@@ -71,14 +76,14 @@ case class ReducerFunctionCall(functionName: Symbol, @transient cond: Option[Any
 case class AndThen(first: AST, second: AST) extends AST {
   first.requireType(BooleanASTType, s"1st argument '$first' must be boolean in '$this'")
   second.requireType(BooleanASTType, s"2nd argument '$second' must be boolean in '$this'")
-  override def metadata = first.metadata + second.metadata
+  override def metadata = first.metadata |+| second.metadata
 
   override val valueType: ASTType = BooleanASTType
 }
 
 case class Timer(cond: AST, interval: TimeInterval, gap: Option[Window] = None) extends AST {
   // Careful! Could be wrong, depending on the PatternMetadata.sumWindowsMs use-cases
-  override def metadata = cond.metadata + PatternMetadata(Set.empty, gap.map(_.toMillis).getOrElse(interval.max))
+  override def metadata = cond.metadata |+| PatternMetadata(Set.empty, gap.map(_.toMillis).getOrElse(interval.max))
 
   override val valueType: ASTType = BooleanASTType
 }
@@ -95,17 +100,34 @@ case class Assert(cond: AST) extends AST {
  * @param window is `T TIME`
  * @param interval is `> 3 times`
  * @param exactly special term to mark the for-expr as non-sort-circuiting
- *                (ie run to the end, even if Option is obvious).
+ *                (ie run to the end, even if result is obvious).
  */
 case class ForWithInterval(inner: AST, exactly: Option[Boolean], window: Window, interval: Interval[Long]) extends AST {
-  override def metadata  = inner.metadata + PatternMetadata(Set.empty, window.toMillis)
+  override def metadata  = inner.metadata |+| PatternMetadata(Set.empty, window.toMillis)
   override val valueType = BooleanASTType
 }
 
 case class AggregateCall(function: AggregateFn, value: AST, window: Window, gap: Option[Window] = None) extends AST {
-  override def metadata = value.metadata + PatternMetadata(Set.empty, gap.getOrElse(window).toMillis)
+  override def metadata = value.metadata |+| PatternMetadata(Set.empty, gap.getOrElse(window).toMillis)
 
   override val valueType: ASTType = DoubleASTType //TODO: Customize return type
+}
+
+sealed trait AggregateFn extends Product with Serializable
+case object Sum          extends AggregateFn
+case object Count        extends AggregateFn
+case object Avg          extends AggregateFn
+case object Lag          extends AggregateFn
+
+object AggregateFn {
+
+  def fromSymbol(name: Symbol): AggregateFn = name match {
+    case 'sum   => Sum
+    case 'count => Count
+    case 'avg   => Avg
+    case 'lag   => Lag
+    case _      => throw new ParseException(Seq(s"Unknown aggregator '$name'"))
+  }
 }
 
 case class Cast(inner: AST, to: ASTType) extends AST {
