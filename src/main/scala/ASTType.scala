@@ -1,5 +1,4 @@
-package dsl
-
+package ru.itclover.tsp.dsl.v2
 import scala.reflect.ClassTag
 
 trait ASTType
